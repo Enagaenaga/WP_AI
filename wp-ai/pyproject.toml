@@ -1,0 +1,25 @@
+[project]
+name = "wp-ai"
+version = "0.1.0"
+description = "WP Doctor AI CLI Client"
+authors = [{name = "WP Doctor AI Team"}]
+dependencies = [
+    "typer",
+    "paramiko",
+    "pydantic",
+    "google-generativeai",
+    "openai",
+    "tomli",
+    "tomli_w",
+    "keyring",
+    "rich",
+   "requests"
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+wp-ai = "wp_ai.main:app"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

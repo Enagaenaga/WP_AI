@@ -1,0 +1,10 @@
+typer
+paramiko
+pydantic
+google-generativeai
+openai
+tomli
+tomli_w
+keyring
+rich
+requests

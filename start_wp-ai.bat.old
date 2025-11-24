@@ -1,0 +1,227 @@
+@echo off
+setlocal enabledelayedexpansion
+REM WP-AI Startup Batch File
+
+echo ===================================
+echo    WP-AI Startup Script
+echo ===================================
+echo.
+
+REM Save current directory
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_DIR=%SCRIPT_DIR%wp-ai"
+
+REM Change to project directory
+cd /d "%PROJECT_DIR%"
+if errorlevel 1 (
+    echo ERROR: wp-ai directory not found
+    pause
+    exit /b 1
+)
+
+REM Check if Python is installed
+python --version > nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Python is not installed
+    echo Please install Python 3.10 or higher
+    echo Download: https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
+
+REM Check virtual environment path
+set "VENV_PATH=%PROJECT_DIR%\.venv"
+set "VENV_ACTIVATE=%VENV_PATH%\Scripts\activate.bat"
+
+REM Create virtual environment if it doesn't exist
+if not exist "%VENV_PATH%" (
+    echo Virtual environment not found. Creating new virtual environment...
+    python -m venv .venv
+    if errorlevel 1 (
+        echo ERROR: Failed to create virtual environment
+        pause
+        exit /b 1
+    )
+    echo Virtual environment created successfully
+)
+
+REM Activate virtual environment
+echo Activating virtual environment...
+call "%VENV_ACTIVATE%"
+if errorlevel 1 (
+    echo ERROR: Failed to activate virtual environment
+    pause
+    exit /b 1
+)
+
+REM Install dependencies (first time or update)
+set "REQUIREMENTS_CHECK=%VENV_PATH%\installed.txt"
+if not exist "%REQUIREMENTS_CHECK%" (
+    echo Installing dependencies...
+    echo This may take a few minutes...
+    pip install -e .
+    if errorlevel 1 (
+        echo WARNING: There may be issues with dependency installation
+    ) else (
+        echo installed > "%REQUIREMENTS_CHECK%"
+        echo Dependencies installed successfully
+    )
+)
+
+echo.
+echo ===================================
+echo    WP-AI is ready to start
+echo ===================================
+echo.
+echo Usage:
+echo   wp-ai --help                    # Show help
+echo   wp-ai diagnose                  # Diagnose WordPress
+echo   wp-ai ssh test                  # Test SSH connection
+echo   wp-ai config show               # Show configuration
+echo.
+echo To start in interactive mode:
+echo   wp-ai
+echo.
+
+REM Check API key configuration
+echo Checking API key configuration...
+python -c "import keyring; key = keyring.get_password('wp-ai', 'gemini_api_key'); print('set' if key else 'not_set')" > "%TEMP%\wp_ai_key_check.txt" 2>nul
+set /p API_KEY_CHECK=<"%TEMP%\wp_ai_key_check.txt"
+del "%TEMP%\wp_ai_key_check.txt" 2>nul
+
+if "%API_KEY_CHECK%"=="not_set" (
+    echo.
+    echo WARNING: Gemini API key is not configured
+    echo To set up the API key, run:
+    echo   python set_api_key.py
+    echo.
+)
+
+REM Select startup mode
+echo Select startup mode:
+echo   1. Show help and available commands
+echo   2. Execute custom command
+echo   3. System info (requires API credentials)
+echo   4. Plugins analysis (requires API credentials)
+echo   5. View logs (requires API credentials)
+echo   6. AI chat mode
+echo   7. LLM configuration
+echo   8. Exit
+echo.
+set /p USER_CHOICE="Select (1-8): "
+
+REM Trim all whitespace characters (spaces, tabs, etc.)
+set "USER_CHOICE=!USER_CHOICE: =!"
+set "USER_CHOICE=!USER_CHOICE:	=!"
+
+REM Convert full-width numbers to half-width
+set "USER_CHOICE=!USER_CHOICE:１=1!"
+set "USER_CHOICE=!USER_CHOICE:２=2!"
+set "USER_CHOICE=!USER_CHOICE:３=3!"
+set "USER_CHOICE=!USER_CHOICE:４=4!"
+set "USER_CHOICE=!USER_CHOICE:５=5!"
+set "USER_CHOICE=!USER_CHOICE:６=6!"
+set "USER_CHOICE=!USER_CHOICE:７=7!"
+set "USER_CHOICE=!USER_CHOICE:８=8!"
+
+REM Debug: Show what was entered (remove this after testing)
+echo [DEBUG] You selected: [!USER_CHOICE!]
+
+if "!USER_CHOICE!"=="1" goto choice1
+if "!USER_CHOICE!"=="2" goto choice2
+if "!USER_CHOICE!"=="3" goto choice3
+if "!USER_CHOICE!"=="4" goto choice4
+if "!USER_CHOICE!"=="5" goto choice5
+if "!USER_CHOICE!"=="6" goto choice6
+if "!USER_CHOICE!"=="7" goto choice7
+if "!USER_CHOICE!"=="8" goto choice8
+goto invalid_choice
+
+:choice1
+echo.
+wp-ai --help
+goto end_menu
+
+:choice2
+echo.
+echo Available commands:
+echo   - say "instruction" --host HOST
+echo   - plan "instruction" --host HOST
+echo   - run "wp command" --host HOST
+echo   - system info --host HOST
+echo   - plugins analysis --host HOST
+echo   - logs tail --host HOST
+echo.
+set /p COMMAND="Enter command (e.g., system info --host default): "
+if not "!COMMAND!"=="" (
+    echo.
+    echo Executing: wp-ai !COMMAND!
+    echo.
+    wp-ai !COMMAND!
+)
+goto end_menu
+
+:choice3
+echo.
+set /p HOST="Enter host name [default]: "
+if "!HOST!"=="" set HOST=default
+echo Fetching system info from host: !HOST!
+echo.
+wp-ai system info --host !HOST!
+goto end_menu
+
+:choice4
+echo.
+set /p HOST="Enter host name [default]: "
+if "!HOST!"=="" set HOST=default
+echo Analyzing plugins on host: !HOST!
+echo.
+wp-ai plugins analysis --host !HOST!
+goto end_menu
+
+:choice5
+echo.
+set /p HOST="Enter host name [default]: "
+if "!HOST!"=="" set HOST=default
+set /p LINES="Number of log lines [50]: "
+if "!LINES!"=="" set LINES=50
+echo Viewing logs from host: !HOST!
+echo.
+wp-ai logs tail --host !HOST! --lines !LINES!
+goto end_menu
+
+:choice6
+echo.
+set /p MESSAGE="Enter your message to AI: "
+if not "!MESSAGE!"=="" (
+    echo.
+    wp-ai aichat ask "!MESSAGE!"
+)
+goto end_menu
+
+:choice7
+echo.
+echo Current LLM configuration:
+wp-ai llm-config show
+echo.
+echo To change configuration, run:
+echo   wp-ai llm-config set --provider PROVIDER --model MODEL
+goto end_menu
+
+:choice8
+echo Exiting...
+exit /b 0
+
+:invalid_choice
+echo Invalid selection. Showing help.
+echo.
+wp-ai --help
+goto end_menu
+
+:end_menu
+
+echo.
+echo ===================================
+echo    Script completed
+echo ===================================
+pause

@@ -1,0 +1,2 @@
+[console_scripts]
+wp-ai = wp_ai.main:app

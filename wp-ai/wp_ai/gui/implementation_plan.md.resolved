@@ -1,0 +1,165 @@
+# WP-AI GUI実装プラン
+
+WP-AI CLIツールにグラフィカルユーザーインターフェースを導入し、非技術者でも直感的に操作可能なインターフェースを提供します。本プランは仕様書に従い、フェーズ1（AIチャットGUI MVP）の実装を対象とします。
+
+## User Review Required
+
+> [!IMPORTANT]
+> **LLMClientの拡張**
+> 既存の[LLMClient](file:///c:/Users/shima/OneDrive/%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88/GitHub/WP-AI/wp-ai/wp_ai/llm.py#4-24)クラスにストリーミングメソッド追加が必要です。現在は[generate_content()](file:///c:/Users/shima/OneDrive/%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88/GitHub/WP-AI/wp-ai/wp_ai/llm.py#18-24)のみですが、`generate_content_stream()`を追加してGemini APIのストリーミング機能を活用します。
+
+> [!NOTE]
+> **フェーズ分割**
+> 本プランはフェーズ1（AIチャットGUI）のみを対象としています。フェーズ2（メインランチャー）とフェーズ3（AIプランナー）は後続タスクとして別途実装します。
+
+## Proposed Changes
+
+### Core Module: LLM Client Enhancement
+
+既存のLLMクライアントにストリーミング機能を追加します。
+
+#### [MODIFY] [llm.py](file:///c:/Users/shima/OneDrive/ドキュメント/GitHub/WP-AI/wp-ai/wp_ai/llm.py)
+
+- `generate_content_stream(messages)` メソッドを追加
+- Gemini APIの`stream=True`モードを使用
+- チャンクごとにyieldするジェネレータとして実装
+- エラーハンドリングを追加
+
+---
+
+### GUI Module: Chat Window
+
+メインのチャットウィンドウを実装します。
+
+#### [NEW] [chat_window.py](file:///c:/Users/shima/OneDrive/ドキュメント/GitHub/WP-AI/wp-ai/wp_ai/gui/chat_window.py)
+
+- `ChatWindow`クラス（tk.Tkを継承）
+- UI要素:
+  - チャット表示エリア（ScrolledText）
+  - プロンプト入力欄（Entry）
+  - Send/Stopボタン
+  - ホスト選択コンボボックス
+  - ステータスバー（StatusBarウィジェット使用）
+  - コンテキスト制御パネル（ContextControlPanelウィジェット使用）
+- 機能:
+  - スレッドベースの非同期ストリーミング処理
+  - キュー経由のメッセージ受信
+  - 中断機能（threading.Event使用）
+  - ホスト切替
+  - LLM設定ダイアログ起動
+- `__main__`ブロックでGUI起動
+
+---
+
+### GUI Module: Dialogs
+
+設定ダイアログを実装します。
+
+#### [NEW] [dialogs.py](file:///c:/Users/shima/OneDrive/ドキュメント/GitHub/WP-AI/wp-ai/wp_ai/gui/dialogs.py)
+
+- [LLMSettingsDialog](file:///c:/Users/shima/OneDrive/%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88/GitHub/wp_Doctor/wp_Doctor/client/gui_chat.py#586-676)クラス（tk.Toplevelを継承）
+  - Provider選択（Combobox: gemini/openai）
+  - Model入力（Entry）
+  - API Key入力（Entry、show='*'）
+  - 設定読込・保存機能（config.toml経由）
+  - 検証機能
+
+- `HostManagerDialog`クラス（tk.Toplevelを継承、フェーズ2で実装）
+  - ホスト一覧表示
+  - ホスト追加・編集・削除
+  - 接続テスト機能
+
+---
+
+### GUI Module: Widgets Update
+
+既存のウィジェットにメソッドを追加します（必要に応じて）。
+
+#### [MODIFY] [widgets.py](file:///c:/Users/shima/OneDrive/ドキュメント/GitHub/WP-AI/wp-ai/wp_ai/gui/widgets.py)
+
+- StatusBarクラス: 既に実装済み、変更不要
+- ContextControlPanelクラス: 既に実装済み、変更不要
+
+---
+
+### Launcher Script
+
+GUIを起動するバッチファイルを作成します。
+
+#### [NEW] [Launch_WP_AI_GUI.bat](file:///c:/Users/shima/OneDrive/ドキュメント/GitHub/WP-AI/Launch_WP_AI_GUI.bat)
+
+- UTF-8環境変数設定
+- 仮想環境チェックと有効化
+- `python -m wp_ai.gui.chat_window`でGUI起動
+- エラーメッセージ表示
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+手動テストのみ（tkinter GUIの自動テストは複雑なため、フェーズ1では対象外）
+
+### Manual Verification
+
+#### 1. GUI起動テスト
+```batch
+cd c:\Users\shima\OneDrive\ドキュメント\GitHub\WP-AI
+Launch_WP_AI_GUI.bat
+```
+- GUIウィンドウが正常に表示されること
+- 日本語が正しく表示されること（文字化けなし）
+
+#### 2. ホスト選択テスト
+- ドロップダウンからホストを選択
+- Reloadボタンでconfig.tomlを再読込
+- 選択したホストが正しく切り替わること
+
+#### 3. チャット送信テスト（非ストリーミング）
+- プロンプト入力欄に「こんにちは」と入力
+- Sendボタンクリック（またはEnter）
+- AI応答が表示されること
+- ステータスバーが「準備中」→「出力中」→「完了」と変化すること
+
+#### 4. ストリーミングテスト
+- 長めのプロンプトを入力（例: 「WordPressのセキュリティ対策について詳しく教えて」）
+- Send実行
+- AIの応答がリアルタイムで徐々に表示されること
+- プログレスバーがアニメーションすること
+
+#### 5. 中断テスト
+- 長めのプロンプトを送信
+- ストリーミング中にStopボタンをクリック
+- ストリーミングが停止すること
+- UIが正常状態に戻ること
+
+#### 6. コンテキスト制御テスト
+- system/plugins/logsのチェックボックスをON/OFF
+- ログパラメータ（行数、レベル）を変更
+- チャット送信時に適切なコンテキストが取得されること（応答内容で確認）
+
+#### 7. LLM設定ダイアログテスト
+- 「LLM設定...」ボタンをクリック
+- ダイアログが表示されること
+- Provider/Model/API Keyを変更
+- 保存ボタンでconfig.tomlに反映されること
+- 設定読込ボタンで現在の設定が読み込まれること
+
+#### 8. エラーハンドリングテスト
+- API Keyを無効な値に設定
+- チャット送信
+- エラーメッセージが適切に表示されること
+- GUIがクラッシュしないこと
+
+#### 9. 日本語入出力テスト
+- 日本語プロンプトを入力
+- 日本語応答が正しく表示されること
+- 文字化けがないこと
+
+### Success Criteria
+
+- すべての手動テストが pass すること
+- GUIが3秒以内に起動すること
+- ストリーミング応答が途切れずに表示されること
+- 日本語が完全に正しく表示されること

@@ -1,0 +1,676 @@
+# WP-AI GUI導入仕様書
+
+**バージョン**: 1.0  
+**作成日**: 2025-11-21  
+**対象**: WP-AI プロジェクト
+
+---
+
+## 1. プロジェクト概要
+
+### 1.1 目的
+WP-AI CLIツールにグラフィカルユーザーインターフェース（GUI）を導入し、以下を実現する：
+- 非技術者でも直感的に操作可能なインターフェースの提供
+- AIチャット機能のリアルタイムストリーミング対応
+- 現在のバッチファイルの問題（AIの回答が消える）の解決
+- WP-CLIコマンド実行の可視化
+
+### 1.2 スコープ
+
+#### フェーズ1（MVP）: AIチャットGUI
+- LLMチャット機能のGUI化
+- ストリーミング出力対応
+- LLM設定ダイアログ
+- ホスト選択機能
+
+#### フェーズ2（拡張）: フルランチャー
+- メニューランチャーの実装
+- システム情報表示
+- プラグイン分析表示
+- ログビューア
+
+#### フェーズ3（高度）: AIプランナー
+- [plan](file:///c:/Users/shima/OneDrive/%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88/GitHub/WP-AI/wp-ai/wp_ai/main.py#122-181)/[say](file:///c:/Users/shima/OneDrive/%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88/GitHub/WP-AI/wp-ai/wp_ai/main.py#183-277)コマンドのGUI統合
+- SSH実行の可視化
+- 実行履歴管理
+
+### 1.3 参考実装
+wp_Doctorプロジェクトの[gui_chat.py](file:///c:/Users/shima/OneDrive/%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88/GitHub/wp_Doctor/wp_Doctor/client/gui_chat.py)をベースに設計
+
+---
+
+## 2. 機能要件
+
+### 2.1 必須機能（フェーズ1）
+
+#### 2.1.1 AIチャット機能
+- **入力**: テキストフィールドでプロンプト入力
+- **出力**: ストリーミング形式でAI応答を表示
+- **コンテキスト選択**: システム情報/プラグイン/ログの選択的取得
+- **中断機能**: ストリーミング中の停止ボタン
+
+**詳細仕様**:
+```
+- 入力欄: 単行Entry（Enterで送信）
+- 出力エリア: ScrolledText（読み取り専用）
+- Sendボタン: プロンプト送信
+- Stopボタン: ストリーミング中断
+- ステータスバー: 進捗表示（準備中/出力中/完了）
+- プログレスバー: インジケーター表示
+```
+
+#### 2.1.2 ホスト管理
+- **ホスト選択**: ドロップダウンでホスト切替
+- **リロード機能**: config.tomlの再読込
+- **ホスト追加**: （フェーズ2で実装）
+
+#### 2.1.3 LLM設定
+- **設定ダイアログ**: Provider/Model/API Key設定
+- **設定読込**: config.tomlからの読込
+- **設定保存**: config.tomlへの書込
+
+#### 2.1.4 コンテキスト制御
+- **チェックボックス**: system/plugins/logsの個別選択
+- **ログパラメータ**: 行数・レベル指定
+
+### 2.2 拡張機能（フェーズ2）
+
+#### 2.2.1 メインランチャー
+- ボタン形式のメニュー
+- ヘルプ表示
+- カスタムコマンド実行
+- システム情報表示
+- プラグイン分析
+- ログ表示
+
+#### 2.2.2 実行履歴
+- 履歴一覧表示
+- 履歴検索
+- 再実行機能
+
+### 2.3 高度機能（フェーズ3）
+
+#### 2.3.1 AIプランナーGUI
+- プラン生成UI
+- コマンド確認ダイアログ
+- SSH実行の進捗表示
+- 実行結果の可視化
+
+---
+
+## 3. 技術仕様
+
+### 3.1 技術スタック
+
+| 項目 | 技術 | 備考 |
+|------|------|------|
+| GUI フレームワーク | tkinter | Python標準ライブラリ |
+| HTTPクライアント | requests | 既存依存関係 |
+| LLMクライアント | wp_ai.llm.LLMClient | 既存モジュール |
+| SSH実行 | wp_ai.ssh.SSHRunner | 既存モジュール |
+| 設定管理 | wp_ai.config | 既存モジュール |
+| スレッド管理 | threading | 標準ライブラリ |
+| キュー | queue.Queue | 標準ライブラリ |
+
+### 3.2 システム要件
+
+#### 動作環境
+- **OS**: Windows 10/11（優先）、macOS、Linux
+- **Python**: 3.10以上
+- **依存パッケージ**: 
+  - tkinter（標準、ただしOS依存）
+  - requests
+  - typer
+  - rich
+  - pydantic
+
+#### 推奨環境
+- 画面解像度: 1280x720以上
+- メモリ: 512MB以上の空きメモリ
+
+### 3.3 文字エンコーディング
+すべてのテキスト処理はUTF-8で統一：
+```python
+import sys
+import os
+os.environ['PYTHONUTF8'] = '1'
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+sys.stdout.reconfigure(encoding='utf-8')
+```
+
+---
+
+## 4. アーキテクチャ設計
+
+### 4.1 ディレクトリ構成
+
+```
+WP-AI/
+├── start_wp-ai.bat              # 既存CLIランチャー
+├── Launch_WP_AI_GUI.bat         # 新規: GUIランチャー
+└── wp-ai/
+    ├── config.toml
+    ├── pyproject.toml
+    └── wp_ai/
+        ├── __init__.py
+        ├── main.py              # 既存CLI
+        ├── llm.py               # 既存LLMクライアント
+        ├── ssh.py               # 既存SSH実行
+        ├── config.py            # 既存設定管理
+        └── gui/                 # 新規: GUIモジュール
+            ├── __init__.py
+            ├── launcher.py      # [フェーズ2] メインランチャー
+            ├── chat_window.py   # [フェーズ1] チャットウィンドウ
+            ├── dialogs.py       # [フェーズ1] 設定ダイアログ群
+            ├── widgets.py       # [フェーズ1] カスタムウィジェット
+            └── utils.py         # [フェーズ1] ユーティリティ
+```
+
+### 4.2 クラス設計
+
+#### 4.2.1 ChatWindow（chat_window.py）
+
+```python
+class ChatWindow(tk.Tk):
+    """メインチャットウィンドウ"""
+    
+    # 属性
+    - client: LLMClient           # LLMクライアント
+    - config: Config              # 設定オブジェクト
+    - response_queue: Queue       # 応答キュー
+    - cancel_event: Event         # 中断イベント
+    
+    # UI要素
+    - chat_display: ScrolledText  # チャット表示領域
+    - prompt_input: Entry         # プロンプト入力欄
+    - send_button: Button         # 送信ボタン
+    - stop_button: Button         # 停止ボタン
+    - host_combo: Combobox        # ホスト選択
+    - status_var: StringVar       # ステータス表示
+    - progress: Progressbar       # プログレスバー
+    
+    # コンテキスト制御
+    - ctx_system_var: BooleanVar  # システム情報
+    - ctx_plugins_var: BooleanVar # プラグイン情報
+    - ctx_logs_var: BooleanVar    # ログ情報
+    - log_lines_var: StringVar    # ログ行数
+    - log_level_var: StringVar    # ログレベル
+    
+    # メソッド
+    + __init__(config: Config)
+    + send_message(event=None)    # メッセージ送信
+    + run_chat_stream(prompt: str) # ストリーミング実行（スレッド）
+    + check_queue()               # キューチェック（メインスレッド）
+    + stop_stream()               # ストリーミング中断
+    + add_message(sender, text, is_streaming)  # メッセージ追加
+    + update_typing_indicator()   # タイピングインジケーター
+    + on_host_change(event)       # ホスト変更
+    + reload_hosts()              # ホスト再読込
+```
+
+#### 4.2.2 LLMSettingsDialog（dialogs.py）
+
+```python
+class LLMSettingsDialog(tk.Toplevel):
+    """LLM設定ダイアログ"""
+    
+    # 属性
+    - parent: ChatWindow
+    - provider_var: StringVar
+    - model_var: StringVar
+    - api_key_var: StringVar
+    
+    # メソッド
+    + __init__(parent: ChatWindow)
+    + load_settings()             # 設定読込
+    + save_settings()             # 設定保存
+    + validate_settings()         # 設定検証
+    + on_close()                  # 閉じる処理
+```
+
+#### 4.2.3 HostManagerDialog（dialogs.py）
+
+```python
+class HostManagerDialog(tk.Toplevel):
+    """ホスト管理ダイアログ"""
+    
+    # 属性
+    - parent: ChatWindow
+    - hosts: List[HostConfig]
+    - listbox: Listbox
+    - url_var: StringVar
+    - ssh_host_var: StringVar
+    - ssh_user_var: StringVar
+    
+    # メソッド
+    + __init__(parent: ChatWindow)
+    + load_hosts()                # ホスト一覧読込
+    + add_host()                  # ホスト追加
+    + update_host()               # ホスト更新
+    + delete_host()               # ホスト削除
+    + test_connection()           # 接続テスト
+    + save_config()               # 設定保存
+```
+
+### 4.3 データフロー
+
+#### 4.3.1 チャットメッセージフロー
+
+```
+[ユーザー入力]
+    ↓
+[ChatWindow.send_message()]
+    ↓
+[スレッド起動: run_chat_stream()]
+    ↓
+[LLMClient.generate_content()] ← ストリーミングモード
+    ↓ (チャンクごと)
+[response_queue.put(chunk)]
+    ↓
+[check_queue()] ← メインスレッド（100ms間隔）
+    ↓
+[add_message()] ← UI更新
+    ↓
+[ScrolledText表示]
+```
+
+#### 4.3.2 設定更新フロー
+
+```
+[LLMSettingsDialog.save_settings()]
+    ↓
+[config.toml更新]
+    ↓
+[Config再読込]
+    ↓
+[LLMClient再初期化]
+```
+
+---
+
+## 5. UI/UX設計
+
+### 5.1 メインウィンドウレイアウト
+
+```
+┌─────────────────────────────────────────────────────┐
+│ WP-AI Chat                                    [_][□][X]│
+├─────────────────────────────────────────────────────┤
+│ Host: [docker ▼] [Reload] [Manage] [LLM設定...]    │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  ┌───────────────────────────────────────────────┐ │
+│  │ You:                                          │ │
+│  │ WordPressのバージョンを教えて                 │ │
+│  │                                               │ │
+│  │ AI:                                           │ │
+│  │ お使いのWordPressのバージョンは6.4.2です...  │ │
+│  │                                               │ │
+│  │                                               │ │
+│  │                                               │ │
+│  └───────────────────────────────────────────────┘ │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│ ☑ system  ☑ plugins  ☐ logs  Lines:[120] Level:[all▼]│
+├─────────────────────────────────────────────────────┤
+│ [プロンプト入力欄_____________________] [Send] [Stop]│
+├─────────────────────────────────────────────────────┤
+│ 準備中... [▓▓▓░░░░░░░]                              │
+└─────────────────────────────────────────────────────┘
+```
+
+### 5.2 カラースキーム
+
+| 要素 | 色 | 用途 |
+|------|-----|------|
+| 背景 | #F5F5F5 | メインウィンドウ |
+| テキスト | #212121 | 通常テキスト |
+| ユーザーメッセージ | #1976D2 | You: ラベル |
+| AIメッセージ | #388E3C | AI: ラベル |
+| ボタン（有効） | #2196F3 | Sendボタン |
+| ボタン（警告） | #F44336 | Stopボタン |
+| ステータス（準備中） | #FF9800 | 処理中 |
+| ステータス（完了） | #4CAF50 | 成功 |
+| ステータス（エラー） | #F44336 | エラー |
+
+### 5.3 フォント
+
+- **Windows**: メイリオ、Meiryo UI
+- **macOS**: ヒラギノ角ゴ ProN
+- **Linux**: Noto Sans CJK JP
+- **フォールバック**: Arial, sans-serif
+
+---
+
+## 6. 実装詳細
+
+### 6.1 主要コンポーネントの実装
+
+#### 6.1.1 ストリーミング処理
+
+```python
+def run_chat_stream(self, prompt: str):
+    """バックグラウンドスレッドでストリーミング実行"""
+    try:
+        messages = [
+            {"role": "system", "content": "You are WP-AI assistant..."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        for chunk in self.client.generate_content_stream(messages):
+            if self._cancel_event.is_set():
+                break
+            text = chunk.decode('utf-8', errors='ignore')
+            self.response_queue.put({"type": "chunk", "text": text})
+        
+        self.response_queue.put({"type": "done"})
+    except Exception as e:
+        self.response_queue.put({"type": "error", "text": str(e)})
+```
+
+#### 6.1.2 キューチェック
+
+```python
+def check_queue(self):
+    """メインスレッドで定期的にキューをチェック"""
+    try:
+        while not self.response_queue.empty():
+            msg = self.response_queue.get_nowait()
+            if msg["type"] == "chunk":
+                self.add_message("AI", msg["text"], is_streaming=True)
+            elif msg["type"] == "done":
+                self.on_stream_complete()
+            elif msg["type"] == "error":
+                self.show_error(msg["text"])
+    finally:
+        self.after(100, self.check_queue)  # 100ms後に再実行
+```
+
+#### 6.1.3 中断処理
+
+```python
+def stop_stream(self):
+    """ストリーミング中断"""
+    self._cancel_event.set()
+    self.status_var.set("中断しました")
+    self.progress.stop()
+    self.send_button.config(state='normal')
+    self.stop_button.config(state='disabled')
+```
+
+### 6.2 設定ファイル連携
+
+#### 6.2.1 config.toml読込
+
+```python
+def load_config(self) -> Config:
+    """設定ファイル読込"""
+    from wp_ai.config import load_config as load_toml_config
+    return load_toml_config()
+```
+
+#### 6.2.2 ホスト一覧取得
+
+```python
+def get_hosts(self) -> List[HostConfig]:
+    """ホスト一覧取得"""
+    config = self.load_config()
+    return config.hosts
+```
+
+---
+
+## 7. 実装手順
+
+### フェーズ1: AIチャットGUI（3-5日）
+
+#### Day 1: 基本構造
+- [ ] `wp_ai/gui/`ディレクトリ作成
+- [ ] `chat_window.py`の骨格実装
+- [ ] 基本UIレイアウト作成
+- [ ] `Launch_WP_AI_GUI.bat`作成
+
+#### Day 2: チャット機能
+- [ ] プロンプト入力・送信機能
+- [ ] メッセージ表示機能
+- [ ] ストリーミング処理実装
+- [ ] キューベースの非同期処理
+
+#### Day 3: コンテキスト制御
+- [ ] チェックボックス実装
+- [ ] コンテキスト取得ロジック統合
+- [ ] ログパラメータ処理
+
+#### Day 4: 設定・ホスト管理
+- [ ] LLM設定ダイアログ実装
+- [ ] ホスト選択機能
+- [ ] 設定の永続化
+
+#### Day 5: 仕上げ
+- [ ] エラーハンドリング
+- [ ] UI調整（フォント、色）
+- [ ] テスト・デバッグ
+
+### フェーズ2: メインランチャー（2-3日）
+
+#### Day 6-7: ランチャー実装
+- [ ] `launcher.py`作成
+- [ ] メニューボタン配置
+- [ ] 各機能への遷移
+
+#### Day 8: 統合
+- [ ] 既存CLI機能との統合
+- [ ] システム情報表示
+- [ ] ログビューア
+
+### フェーズ3: AIプランナー（3-4日）
+
+#### Day 9-10: プラン生成UI
+- [ ] プラン表示ダイアログ
+- [ ] コマンド確認UI
+- [ ] SSH実行プログレス
+
+#### Day 11-12: 履歴管理
+- [ ] 履歴DB実装
+- [ ] 履歴一覧UI
+- [ ] 検索・フィルタ機能
+
+---
+
+## 8. テスト計画
+
+### 8.1 単体テスト
+
+#### 8.1.1 UIコンポーネント
+- ウィンドウ表示テスト
+- ボタンクリックテスト
+- 入力検証テスト
+
+#### 8.1.2 ロジック
+- ストリーミング処理テスト
+- 設定読込・保存テスト
+- エラーハンドリングテスト
+
+### 8.2 統合テスト
+
+#### 8.2.1 LLM連携
+- Gemini API接続テスト
+- OpenAI API接続テスト
+- エラー応答処理テスト
+
+#### 8.2.2 設定管理
+- config.toml読込テスト
+- ホスト切替テスト
+- LLM設定変更テスト
+
+### 8.3 手動テスト
+
+#### 8.3.1 ユーザーシナリオ
+1. 初回起動→設定→チャット実行
+2. ホスト切替→チャット実行
+3. ストリーミング中断テスト
+4. 長時間実行テスト
+
+#### 8.3.2 エッジケース
+- ネットワーク切断
+- API キー不正
+- タイムアウト
+- 不正な入力
+
+### 8.4 プラットフォームテスト
+
+- [ ] Windows 10
+- [ ] Windows 11
+- [ ] macOS（可能なら）
+- [ ] Linux（可能なら）
+
+---
+
+## 9. セキュリティ考慮事項
+
+### 9.1 認証情報の取扱い
+- API Keyはマスク表示（`show='*'`）
+- 設定ファイルはユーザーディレクトリに保存
+- パーミッション制限推奨（600）
+
+### 9.2 入力検証
+- プロンプトの長さ制限（10,000文字）
+- SQLインジェクション対策（該当なし）
+- コマンドインジェクション対策（SSH実行時）
+
+### 9.3 エラー処理
+- センシティブ情報を含むエラーメッセージの抑制
+- ログファイルへの詳細記録
+
+---
+
+## 10. パフォーマンス要件
+
+### 10.1 応答時間
+- UI起動: 3秒以内
+- ホスト切替: 1秒以内
+- 設定保存: 0.5秒以内
+
+### 10.2 メモリ使用量
+- アイドル時: 50MB以下
+- ストリーミング時: 100MB以下
+
+### 10.3 同時実行
+- 1つのストリーミングセッションのみ
+- 複数ウィンドウは非サポート（初期）
+
+---
+
+## 11. 既知の制限事項
+
+### 11.1 技術的制限
+- tkinterはマルチウィンドウに不向き
+- macOS/LinuxでのSSH鍵認証は未検証
+- Microsoft Store版Pythonではtkinter不具合の可能性
+
+### 11.2 機能的制限
+- ストリーミング同時実行不可
+- 履歴のエクスポート機能なし（フェーズ1）
+- マークダウンレンダリング非対応
+
+---
+
+## 12. 今後の拡張計画
+
+### 短期（1-3ヶ月）
+- マークダウンレンダリング
+- コードブロックのシンタックスハイライト
+- チャット履歴の永続化
+
+### 中期（3-6ヶ月）
+- プラグイン機能（カスタムツール追加）
+- テーマ切替（ダークモード）
+- 多言語対応
+
+### 長期（6-12ヶ月）
+- Web版GUI（FastAPI + React）
+- タブ式マルチチャット
+- AI音声入力・出力
+
+---
+
+## 13. 付録
+
+### 13.1 起動スクリプト例
+
+**Launch_WP_AI_GUI.bat**:
+```batch
+@echo off
+setlocal EnableExtensions
+
+cd /d "%~dp0wp-ai"
+
+REM UTF-8設定
+chcp 65001 >nul 2>&1
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
+
+REM 仮想環境チェック
+if not exist "..\\.venv\\Scripts\\python.exe" (
+    echo 仮想環境が見つかりません。setup.batを実行してください。
+    pause
+    exit /b 1
+)
+
+REM 仮想環境有効化
+call ..\\.venv\\Scripts\\activate.bat
+
+REM GUI起動
+echo WP-AI GUIを起動しています...
+python -m wp_ai.gui.chat_window
+
+pause
+```
+
+### 13.2 最小動作確認コード
+
+**wp_ai/gui/chat_window.py**（最小版）:
+```python
+import tkinter as tk
+from tkinter import scrolledtext
+
+class ChatWindow(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("WP-AI Chat")
+        self.geometry("600x400")
+        
+        # チャット表示
+        self.chat = scrolledtext.ScrolledText(self, state='disabled')
+        self.chat.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
+        
+        # 入力欄
+        self.input = tk.Entry(self)
+        self.input.pack(fill=tk.X, padx=10, pady=(0,10))
+        self.input.bind("<Return>", self.send)
+        
+        # 送信ボタン
+        tk.Button(self, text="Send", command=self.send).pack(pady=(0,10))
+    
+    def send(self, event=None):
+        msg = self.input.get()
+        if msg:
+            self.chat.config(state='normal')
+            self.chat.insert(tk.END, f"You: {msg}\n")
+            self.chat.config(state='disabled')
+            self.input.delete(0, tk.END)
+
+if __name__ == "__main__":
+    app = ChatWindow()
+    app.mainloop()
+```
+
+### 13.3 参考資料
+- [tkinter公式ドキュメント](https://docs.python.org/ja/3/library/tkinter.html)
+- [wp_Doctor gui_chat.py](file:///c:/Users/shima/OneDrive/ドキュメント/GitHub/wp_Doctor/wp_Doctor/client/gui_chat.py)
+- [Python threading](https://docs.python.org/ja/3/library/threading.html)
+- [Python queue](https://docs.python.org/ja/3/library/queue.html)
+
+---
+
+**以上、WP-AI GUI導入仕様書 v1.0**

@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: wp-ai
+Version: 0.1.0
+Summary: WP Doctor AI CLI Client
+Author: WP Doctor AI Team
+Requires-Python: >=3.10
+Requires-Dist: typer
+Requires-Dist: paramiko
+Requires-Dist: pydantic
+Requires-Dist: google-generativeai
+Requires-Dist: openai
+Requires-Dist: tomli
+Requires-Dist: tomli_w
+Requires-Dist: keyring
+Requires-Dist: rich
+Requires-Dist: requests

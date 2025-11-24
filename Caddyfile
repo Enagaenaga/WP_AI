@@ -1,0 +1,12 @@
+{
+	# Optional: enable debug logging
+	# debug
+}
+
+caddy:443 {
+    tls internal
+    encode gzip
+    handle {
+        reverse_proxy wordpress:80
+    }
+}
