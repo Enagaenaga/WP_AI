@@ -196,7 +196,7 @@ class PlannerWindow(tk.Toplevel):
             
             # LLM呼び出し
             client = LLMClient(self.config.llm)
-            prompt = build_prompt(instruction, host=self.current_host.name, context=context_text)
+            prompt = build_prompt(instruction, host_config=self.current_host, context=context_text)
             
             response_text = client.generate_content(prompt)
             

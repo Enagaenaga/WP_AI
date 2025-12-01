@@ -1,0 +1,31 @@
+[llm]
+provider = "gemini"
+model = "gemini-2.5-pro-preview-03-25"
+
+[policy]
+allow_risk = "low"
+blocklist = [ "^wp db drop", "^wp user delete" ]
+
+[runner]
+default = "ssh"
+
+[[hosts]]
+name = "docker"
+api_url = "http://localhost:8080/wp-json"
+[hosts.ssh]
+host = "None"
+port = 22
+user = "None"
+strict_host_key_checking = false
+
+[[hosts]]
+name = "エナガブログ"
+api_url = "https://low2023.com/wp-json"
+[hosts.ssh]
+host = "www315.conoha.ne.jp"
+port = 8022
+user = "c0688186"
+key_path = "C:/Users/shima/.ssh/id_rsa"
+strict_host_key_checking = false
+wp_path = "/opt/alt/php81/usr/bin/php /home/c0688186/bin/wp"
+wordpress_path = "/home/c0688186/public_html/low2023.com"

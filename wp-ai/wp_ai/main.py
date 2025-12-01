@@ -150,7 +150,7 @@ def plan(instruction: str, host: str = typer.Option("default", help="Target host
 
     try:
         client = LLMClient(config.llm)
-        prompt = build_prompt(instruction, host=host_config.name, context=context_text)
+        prompt = build_prompt(instruction, host_config=host_config, context=context_text)
 
         print("[bold blue]Thinking...[/bold blue]")
         response_text = client.generate_content(prompt)
@@ -213,7 +213,7 @@ def say(instruction: str, host: str = typer.Option("default", help="Target host 
 
     try:
         client = LLMClient(config.llm)
-        prompt = build_prompt(instruction, host=host_config.name, context=context_text)
+        prompt = build_prompt(instruction, host_config=host_config, context=context_text)
 
         print("[bold blue]Thinking...[/bold blue]")
         response_text = client.generate_content(prompt)
