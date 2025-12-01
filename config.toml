@@ -1,6 +1,6 @@
 [llm]
 provider = "gemini"
-model = "gemini-2.5-pro-preview-03-25"
+model = "gemini-flash-lite-latest"
 
 [policy]
 allow_risk = "low"
@@ -17,6 +17,8 @@ api_username = "low2023"
 api_password = "SPye aKZ7 4m3H hW63 7Svc RJGe"
 # The [hosts.docker_compose] section is optional.
 # Default service is 'wpcli' and path is '/var/www/html'.
+
+
 
 [[hosts]]
 name = "エナガブログ"

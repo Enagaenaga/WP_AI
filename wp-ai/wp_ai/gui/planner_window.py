@@ -15,9 +15,9 @@ from typing import Optional, List, Dict, Any
 from .utils import setup_encoding
 from .widgets import ContextControlPanel
 
-from ..config import load_config, Config, HostConfig, history_append
+from ..config import load_config, Config, HostConfig, history_append, DockerComposeConfig
 from ..llm import LLMClient
-from ..ssh import SSHRunner
+from ..runner import SSHRunner, DockerComposeRunner, BaseRunner
 from ..api import WPDoctorClient
 from ..auth import get_api_basic_auth_keys
 from ..context import build_context_text
@@ -182,6 +182,20 @@ class PlannerWindow(tk.Toplevel):
     def _generate_plan_thread(self, instruction: str):
         """Plan生成スレッド"""
         try:
+            # デバッグ: 現在のホスト情報を出力
+            print(f"\n{'='*80}")
+            print(f"【デバッグ】プラン生成開始")
+            print(f"{'='*80}")
+            print(f"選択されたホスト: {self.current_host.name}")
+            print(f"ランナー: {self.current_host.runner or self.config.runner.default}")
+            if hasattr(self.current_host, 'ssh') and self.current_host.ssh:
+                print(f"SSH設定あり: True")
+                print(f"  wp_path: {self.current_host.ssh.wp_path}")
+                print(f"  wordpress_path: {self.current_host.ssh.wordpress_path}")
+            else:
+                print(f"SSH設定あり: False")
+            print(f"{'='*80}\n")
+            
             # コンテキスト取得
             context_text = ""
             context_types = self.context_panel.get_context_types()
@@ -197,6 +211,12 @@ class PlannerWindow(tk.Toplevel):
             # LLM呼び出し
             client = LLMClient(self.config.llm)
             prompt = build_prompt(instruction, host_config=self.current_host, context=context_text)
+            
+            # デバッグ: プロンプトの一部を出力
+            print(f"【デバッグ】プロンプトに含まれるキーワード:")
+            print(f"  'CRITICAL COMMAND FORMAT REQUIREMENT': {'CRITICAL COMMAND FORMAT REQUIREMENT' in prompt}")
+            print(f"  'wp_path': {'/opt/alt/php81/usr/bin/php' in prompt}")
+            print(f"{'='*80}\n")
             
             response_text = client.generate_content(prompt)
             
@@ -426,8 +446,9 @@ class SSHExecutionDialog(tk.Toplevel):
         self.host_config = host_config
         self.plan = plan
         self.instruction = instruction
-        self.runner: Optional[SSHRunner] = None
+        self.runner: Optional[BaseRunner] = None
         self.results = []
+        self.config = load_config()
         
         self._build_ui()
         
@@ -475,7 +496,19 @@ class SSHExecutionDialog(tk.Toplevel):
     def _execute_commands(self):
         """コマンド実行"""
         try:
-            self.runner = SSHRunner(self.host_config.ssh)
+            # Determine which runner to use
+            runner_type = self.host_config.runner or self.config.runner.default
+            
+            if runner_type == "ssh":
+                if not self.host_config.ssh:
+                    raise Exception(f"Runner for host '{self.host_config.name}' is 'ssh' but no SSH config found.")
+                self.runner = SSHRunner(self.host_config.ssh)
+            elif runner_type == "docker_compose":
+                dc_config = self.host_config.docker_compose or DockerComposeConfig()
+                self.runner = DockerComposeRunner(dc_config)
+            else:
+                raise Exception(f"Unknown runner type '{runner_type}' for host '{self.host_config.name}'.")
+            
             self.runner.connect()
             
             commands = self.plan.normalized_commands()
